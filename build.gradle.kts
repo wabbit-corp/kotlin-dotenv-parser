@@ -1,89 +1,94 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 repositories {
-    mavenCentral()
+    google()
 
-    maven("https://jitpack.io")
+    mavenCentral()
 }
 
-group   = "one.wabbit"
+group = "one.wabbit"
 version = "0.0.1"
 
 plugins {
-    kotlin("jvm") version "2.2.20"
-    id("org.jetbrains.dokka") version "2.0.0"
-    id("org.jetbrains.kotlinx.kover") version "0.9.1"
+    id("com.android.kotlin.multiplatform.library")
 
+    kotlin("multiplatform")
+
+    id("org.jetbrains.dokka")
+    id("org.jetbrains.kotlinx.kover")
     id("maven-publish")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "one.wabbit"
-            artifactId = "kotlin-dotenv-parser"
-            version = "0.0.1"
-            from(components["java"])
-        }
-    }
-}
-
-dependencies {
-    implementation("one.wabbit:kotlin-parsing-charset:1.3.0")
-    implementation("one.wabbit:kotlin-parsing-charinput:1.2.0")
-    implementation("one.wabbit:kotlin-exec:0.0.1")
-
-    testImplementation(kotlin("test"))
-}
-
-java {
-    targetCompatibility = JavaVersion.toVersion(21)
-    sourceCompatibility = JavaVersion.toVersion(21)
-}
-
-tasks {
-    withType<Test> {
-        jvmArgs("-ea")
+kotlin {
+    jvmToolchain(21)
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
 
     }
-    withType<JavaCompile> {
-        options.encoding = Charsets.UTF_8.name()
-    }
-    withType<Javadoc> {
-        options.encoding = Charsets.UTF_8.name()
-    }
+    applyDefaultHierarchyTemplate()
 
-    withType<KotlinCompile> {
+    jvm {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
-            freeCompilerArgs.add("-Xcontext-receivers")
+        }
+        testRuns["test"].executionTask.configure {
+            jvmArgs("-ea")
         }
     }
 
-    jar {
-        setProperty("zip64", true)
+    androidLibrary {
+        namespace = "one.wabbit.dotenv.parser"
+        compileSdk = 34
+        minSdk = 26
+    }
+
+    iosArm64()
+
+    iosSimulatorArm64()
+
+    macosArm64("hostNative")
+
+    targets.withType(KotlinNativeTarget::class.java).configureEach {
+        binaries.framework {
+            baseName = "DotenvParser"
+            isStatic = true
+        }
+    }
+
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                implementation(project(":kotlin-parsing-charset")) // 1.3.0
+
+                implementation(project(":kotlin-parsing-charinput")) // 1.2.0
+
+            }
+
+        }
+
+        val jvmMain by getting {
+            dependencies {
+                implementation(project(":kotlin-exec")) // 0.0.1
+
+            }
+
+        }
+
+        val commonTest by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-test:2.3.10")
+
+            }
+
+        }
 
     }
 }
 
-// Kover Configuration
-kover {
-    // useJacoco() // This is the default, can be specified if you want to be explicit
-    // reports {
-    //     // Configure reports for the default test task.
-    //     // Kover tries to infer the variant for simple JVM projects.
-    //     // If you have specific build types/flavors, you'd configure them here as variants.
-    //     variant() { // Or remove "debug" for a default JVM setup unless you have variants
-    //         html {
-    //             // reportDir.set(layout.buildDirectory.dir("reports/kover/html")) // Uncomment to customize output
-    //             // title.set("kotlin-dotenv-parser Code Coverage") // Uncomment to customize title
-    //         }
-    //         xml {
-    //             // reportFile.set(layout.buildDirectory.file("reports/kover/coverage.xml")) // Uncomment to customize output
-    //         }
-    //     }
-    // }
+tasks.withType<Test>().configureEach {
+    jvmArgs("-ea")
 }
 
 dokka {
@@ -92,17 +97,16 @@ dokka {
         suppressInheritedMembers.set(true)
         failOnWarning.set(true)
     }
-    dokkaSourceSets.main {
-        // includes.from("README.md")
+
+    dokkaSourceSets.configureEach {
         sourceLink {
-            localDirectory.set(file("src/main/kotlin"))
+            localDirectory.set(file("src"))
             remoteUrl("https://example.com/src")
             remoteLineSuffix.set("#L")
         }
     }
+
     pluginsConfiguration.html {
-        // customStyleSheets.from("styles.css")
-        // customAssets.from("logo.png")
         footerMessage.set("(c) Wabbit Consulting Corporation")
     }
 }

@@ -71,6 +71,14 @@ sealed class DotenvParseException(
 
     class CommandOutputTooLarge(line: Int, col: Int?, maxBytes: Int, context: String) :
         DotenvParseException(line, col, "Command output exceeded $maxBytes bytes", context)
+
+    class CommandSubstitutionUnsupported(line: Int, col: Int?, context: String) :
+        DotenvParseException(
+            line,
+            col,
+            "Command substitution is not supported on this platform",
+            context,
+        )
 }
 
 // ———————————————————————————————————————————————————————————————————————————
@@ -323,7 +331,7 @@ private class DotenvParser(
         private val allowSystemEnv: Boolean,
     ) : MutableVarResolver {
         override fun get(name: String): String? =
-            env[name] ?: if (allowSystemEnv) System.getenv(name) else null
+            env[name] ?: if (allowSystemEnv) platformSystemEnv(name) else null
 
         override fun set(name: String, value: String) {
             env[name] = value
@@ -443,6 +451,8 @@ private class DotenvParser(
                     "<shell>",
                     ctx,
                 )
+            is CommandRunException.Unsupported ->
+                throw DotenvParseException.CommandSubstitutionUnsupported(firstLine, null, ctx)
             else -> throw e
         }
     }
