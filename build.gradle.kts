@@ -6,6 +6,8 @@ repositories {
     google()
 
     mavenCentral()
+
+    maven("https://jitpack.io")
 }
 
 group = "one.wabbit"
@@ -60,9 +62,9 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(project(":kotlin-parsing-charset")) // 1.3.0
+                implementation("one.wabbit:kotlin-parsing-charset:1.3.0")
 
-                implementation(project(":kotlin-parsing-charinput")) // 1.2.0
+                implementation("one.wabbit:kotlin-parsing-charinput:1.2.0")
 
             }
 
@@ -70,7 +72,7 @@ kotlin {
 
         val jvmMain by getting {
             dependencies {
-                implementation(project(":kotlin-exec")) // 0.0.1
+                implementation("one.wabbit:kotlin-exec:0.0.1")
 
             }
 
