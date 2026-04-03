@@ -7,11 +7,11 @@ import one.wabbit.exec.ExecException
 import one.wabbit.exec.ExecSpec
 import one.wabbit.exec.ExitPolicy
 import one.wabbit.exec.ShutdownPolicy
-import one.wabbit.exec.VirtualThreadsPolicy
 import java.io.File
 import java.nio.charset.Charset
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.io.files.Path as KxPath
 
 actual class ProcessCommandExecutor : CommandExecutor {
     private fun defaultShell(): List<String> =
@@ -58,10 +58,16 @@ actual class ProcessCommandExecutor : CommandExecutor {
         val spec =
             ExecSpec(
                 argv = argv,
-                cwd = options.cwd?.let(::File)?.toPath(),
+                cwd = options.cwd?.let { KxPath(File(it).path) },
                 env = envPolicy,
                 stdin = ExecSpec.Input.None,
-                stdout = ExecSpec.StdoutSpec.Pipe(stdoutSink),
+                stdout = ExecSpec.StdoutSpec.Pipe(
+                    ExecSpec.SinkSpec.Capture(
+                        maxBytes = stdoutSink.maxBytes,
+                        keep = stdoutSink.keep,
+                        overflow = stdoutSink.overflow,
+                    )
+                ),
                 stderr =
                     if (options.redirectErrorStream) {
                         ExecSpec.StderrSpec.ToStdout
@@ -76,7 +82,7 @@ actual class ProcessCommandExecutor : CommandExecutor {
 
         val r =
             try {
-                Exec.execBlocking(spec, virtualThreads = VirtualThreadsPolicy.Prefer)
+                Exec.execBlocking(spec)
             } catch (e: ExecException) {
                 when (e.error) {
                     is ExecError.TimedOut ->
