@@ -13,6 +13,9 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.files.Path as KxPath
 
+/**
+ * JVM [CommandExecutor] backed by `one.wabbit:kotlin-exec`.
+ */
 actual class ProcessCommandExecutor : CommandExecutor {
     private fun defaultShell(): List<String> =
         if ((platformSystemEnv("ComSpec") ?: "").isNotBlank() ||
@@ -23,11 +26,17 @@ actual class ProcessCommandExecutor : CommandExecutor {
             listOf("sh", "-c")
         }
 
+    /**
+     * Executes [cmd] through [CommandOptions.shell] or the JVM platform default shell.
+     */
     actual override fun runShell(cmd: String, options: CommandOptions): CommandResult {
         val shell = options.shell ?: defaultShell()
         return runImpl(shell + cmd, options)
     }
 
+    /**
+     * Executes [argv] directly without shell parsing.
+     */
     actual override fun runRaw(argv: List<String>, options: CommandOptions): CommandResult {
         require(argv.isNotEmpty()) { "argv must not be empty" }
         return runImpl(argv, options)
@@ -118,4 +127,7 @@ actual class ProcessCommandExecutor : CommandExecutor {
     }
 }
 
+/**
+ * Returns the process environment variable named [name].
+ */
 actual fun platformSystemEnv(name: String): String? = System.getenv(name)

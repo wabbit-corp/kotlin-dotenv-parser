@@ -1,13 +1,47 @@
 package one.wabbit.dotenv.parser
 
+/**
+ * Resolves variable names during POSIX-style string expansion.
+ */
 interface VarResolver {
+    /**
+     * Returns the value for [name], or `null` when the variable is unset.
+     *
+     * Empty strings are considered set values. Operators with a `:` prefix, such as `${NAME:-x}`,
+     * decide separately whether an empty value should behave like an unset value.
+     */
     fun get(name: String): String?
 }
 
+/**
+ * Resolver that can be updated by assignment-style parameter expansion.
+ */
 interface MutableVarResolver : VarResolver {
+    /**
+     * Stores [value] for [name].
+     *
+     * This is used by `${NAME=word}` and `${NAME:=word}`. When a [StringExpander] is constructed
+     * with a read-only [VarResolver], assignment operators return the assigned value but cannot
+     * persist it.
+     */
     fun set(name: String, value: String)
 }
 
+/**
+ * Options for [StringExpander].
+ *
+ * @property expandVariables whether `$NAME` and `${NAME}` forms are expanded.
+ * @property commandSubstitution whether `$()` and, when allowed, backtick command substitutions are
+ *   executed.
+ * @property strictNames whether braced parameter names must be shell-style identifiers. When
+ *   `false`, braced names may also contain dots and dashes.
+ * @property forbidBackticks whether backtick command substitution is rejected when
+ *   [commandSubstitution] is enabled.
+ * @property maxExpansionDepth maximum recursive depth for nested parameter expansion.
+ * @property maxCommandsPerValue maximum command substitutions allowed during one [StringExpander]
+ *   expansion.
+ * @property commandOptions execution options used for command substitution.
+ */
 data class ExpansionOptions(
     val expandVariables: Boolean = true,
     val commandSubstitution: Boolean = false,
@@ -18,36 +52,93 @@ data class ExpansionOptions(
     val commandOptions: CommandOptions = CommandOptions(),
 )
 
+/**
+ * Base type for failures raised by [StringExpander].
+ */
 sealed class ExpansionException(message: String) : RuntimeException(message) {
+    /**
+     * Raised when a braced parameter has an invalid variable name.
+     *
+     * @property name invalid name text when it was available.
+     */
     class BadParameterName(val name: String? = null) :
         ExpansionException("Bad parameter name ${if (name != null) "'$name' " else ""}in \${...}")
 
+    /**
+     * Raised when a braced parameter uses an operator other than `-`, `+`, `=`, or `?`.
+     *
+     * @property op unsupported operator character.
+     */
     class UnsupportedOperator(val op: Char) :
         ExpansionException("Unsupported operator '$op' in \${...}")
 
+    /**
+     * Raised when a `${...}` expression is missing its closing brace.
+     */
     class UnclosedBracedParameter : ExpansionException("Unclosed \${ in expansion")
 
+    /**
+     * Raised when recursive parameter expansion exceeds
+     * [ExpansionOptions.maxExpansionDepth].
+     */
     class ExpansionTooDeep : ExpansionException("Expansion too deep / nested")
 
+    /**
+     * Raised by `${NAME?message}` and `${NAME:?message}` when a required variable is not set.
+     *
+     * @property name required variable name.
+     * @property msg optional custom message supplied by the expansion expression.
+     */
     class ParameterNotSet(val name: String, val msg: String?) :
         ExpansionException(msg ?: "Parameter '$name' is not set")
 
+    /**
+     * Raised when backtick command substitution is encountered while backticks are forbidden.
+     */
     class BackticksForbidden : ExpansionException("Backticks are forbidden (use \$() instead)")
 
+    /**
+     * Raised when a `$()` command substitution is missing its closing parenthesis.
+     */
     class UnterminatedCommandSubstitution :
         ExpansionException("Unterminated \$() command substitution")
 
+    /**
+     * Raised when a backtick command substitution is missing its closing backtick.
+     */
     class UnterminatedBacktickSubstitution :
         ExpansionException("Unterminated backtick command substitution")
 
+    /**
+     * Raised when command substitution exceeds [max].
+     *
+     * @property max configured maximum number of commands per expanded value.
+     */
     class TooManyCommandSubstitutions(val max: Int) :
         ExpansionException("Too many command substitutions (max $max)")
 
+    /**
+     * Wraps a command-execution failure in expander-specific form.
+     *
+     * @property causeType stable command failure category, such as `Timeout` or `NonZeroExit`.
+     * @property messageOnly failure message without additional source context.
+     */
     class CommandFailed(val causeType: String, val messageOnly: String) :
         ExpansionException("Command failed: $causeType: $messageOnly")
 }
 
-/** Generic POSIX-ish expander; independent of dotenv and CharInput. */
+/**
+ * Expands POSIX-style variables and command substitutions in a string.
+ *
+ * The expander is independent of dotenv parsing and works on plain strings. Variable expansion
+ * supports `$NAME`, `${NAME}`, and the `-`, `+`, `=`, and `?` braced operators with optional
+ * `:` semantics. Command output is inserted literally; it is not passed through a second variable
+ * expansion pass.
+ *
+ * @param resolver variable resolver used by simple and braced parameter expansion.
+ * @param cmd command executor used when [ExpansionOptions.commandSubstitution] is enabled.
+ * @param options expansion and command-execution options.
+ */
 class StringExpander(
     private val resolver: VarResolver,
     private val cmd: CommandExecutor? = null,
@@ -55,6 +146,17 @@ class StringExpander(
 ) {
     private data class CmdCtx(var count: Int = 0)
 
+    /**
+     * Expands [input] according to [options].
+     *
+     * When both variable expansion and command substitution are disabled, this returns [input]
+     * unchanged. Otherwise, variable expansion runs first and skips command-substitution bodies so
+     * shell text is not modified before command execution.
+     *
+     * @throws ExpansionException when expansion syntax is invalid or a configured limit is hit.
+     * @throws IllegalStateException when command substitution is enabled but no command executor
+     *   was provided.
+     */
     fun expand(input: String): String {
         if (!options.expandVariables && !options.commandSubstitution) return input
         val ctx = CmdCtx()

@@ -1,86 +1,190 @@
-**Short answer:** there’s no single, universal “.env spec.” It’s a de‑facto convention popularized by Foreman/Heroku and various *dotenv* libraries. Node.js now documents **its own** `.env` syntax (because there wasn’t a formal one), and other ecosystems have subtly different rules. So you should write for the *lowest common denominator* unless you control the loader. ([ddollar.github.io][1])
+# kotlin-dotenv-parser
 
----
+`kotlin-dotenv-parser` is a Kotlin Multiplatform parser for `.env` documents.
 
-## What most loaders agree on (the safe subset)
+It turns dotenv text into ordered key/value entries, with opt-in POSIX-style variable expansion and
+bounded command substitution for loaders that need shell-compatible behavior.
 
-* **One setting per line** as `KEY=VALUE`. Blank lines are fine. ([Node.js][2])
-* **Comments** start with `#` at the beginning of a line *or* inline; if a `#` belongs in the value, **quote** the value. ([GitHub][3])
-* **Whitespace** around keys, `=`, and values is ignored (outside of quotes). ([Node.js][2])
-* **Quotes:** unquoted, `'single'`, or `"double"` all work. Quotes preserve spaces and `#`. ([Node.js][2])
-* **`export` prefix** is generally tolerated/ignored so you can `source` the file in a shell. (Node’s built‑in, Ruby’s dotenv, and python‑dotenv accept it.) ([Node.js][2])
+The default mode is intentionally conservative: it parses values, quotes, comments, and `export`
+prefixes without reading the host environment or executing commands.
 
-**Minimal, highly portable example**
+## Installation
 
-```dotenv
-# Server config
-PORT=3000
-LOG_LEVEL="info"
-PASSWORD='pa#ss with spaces'
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("one.wabbit:kotlin-dotenv-parser:0.0.1")
+}
 ```
 
----
+## Quick Start
 
-## Where implementations diverge (gotchas)
+```kotlin
+import one.wabbit.dotenv.parser.parseDotenvText
 
-| Feature                            | Node **built‑in** (`--env-file`) | Node `dotenv` (npm)                            | `python-dotenv`       | Ruby `dotenv`                                       |
-| ---------------------------------- | -------------------------------- | ---------------------------------------------- | --------------------- | --------------------------------------------------- |
-| Inline `#` comments                | Yes                              | Yes (>= v15)                                   | Yes                   | Yes                                                 |
-| Multiline values                   | **Yes, but only when quoted**    | **Yes** (>= v15, quoted or with `\n`)          | **Yes** (quoted)      | **Yes** (double‑quoted; `\n` legacy mode)           |
-| Variable expansion (`${FOO}`)      | **No**                           | Not by default (use `dotenvx`/`dotenv-expand`) | **Yes** (POSIX‑style) | **Yes** (`$FOO`/`${FOO}` in unquoted/double‑quoted) |
-| Command substitution (`$(whoami)`) | **No**                           | Not in core (use `dotenvx`)                    | **No**                | **Yes**                                             |
-| `export KEY=...` accepted          | **Yes** (ignored)                | *Unspecified in README*                        | **Yes** (ignored)     | **Yes** (for shell compatibility)                   |
+val entries =
+    parseDotenvText(
+        """
+        APP_ENV=production
+        PORT=8080
+        DB_URL="postgres://user:pass@db.internal:5432/app"
+        PASSWORD='pa#ss with spaces'
+        """.trimIndent()
+    )
 
-Citations: Node built‑in rules (names/values/spacing/comments/export), Node `dotenv` multiline/comments/expansion, python‑dotenv file‑format & expansion, Ruby dotenv multiline/expansion/exports. ([Node.js][2])
+val env = entries.associate { it.key to it.value }
 
-> Translation: if you depend on variable expansion or command substitution, portability goes out the window faster than your staging database when someone runs `DROP`. Stick to literal values unless you *know* which loader will parse them.
-
----
-
-## Is there a *standard* spec?
-
-* **Historically, no.** Even the people proposing one start with: “there is currently no specification… resulting in a multitude of different syntaxes.” ([GitHub][4])
-* **Node.js now documents a spec for Node** (variable name regex, quoting, comments, `export`, etc.), but that’s not binding on Python/Ruby/Go parsers. ([Node.js][2])
-
-The original ecosystem influence came via Foreman/Heroku using simple `KEY=VALUE` lines; everything else accreted in library land. ([ddollar.github.io][1])
-
----
-
-## Practical rules I recommend (works almost everywhere)
-
-1. **UPPER\_SNAKE\_CASE keys**, ASCII letters/digits/underscores; don’t quote keys. (Matches Node’s documented regex and most linters.) ([Node.js][2])
-2. **Quote any value** that contains spaces, `#`, `=`, or leading/trailing whitespace. Use **double quotes** if you need escapes like `\n`. ([Node.js][2])
-3. **Avoid interpolation** (`$FOO`) and **command substitution** (`$(...)`) unless you are standardizing on a loader that supports it (e.g., python‑dotenv or Ruby dotenv, or Node with `dotenvx`). ([GitHub][5])
-4. **Keep files UTF‑8**; Node `dotenv` defaults to UTF‑8 and people trip over odd encodings. ([GitHub][3])
-5. If you need **multiline secrets** (private keys), **always put them in quotes**; all major loaders above handle that. ([GitHub][3])
-6. **Layered files** are implementation‑specific. Ruby’s dotenv defines precise precedence (e.g., `.env.development.local` > `.env.local` > `.env.development` > `.env`). Node’s `dotenv` lets you pass an array of files and control override. Decide your policy and stick to it. ([GitHub][6])
-7. **Don’t commit real secrets.** Use `.env.example` for keys only. (Both Node and Ruby docs say to keep real `.env` out of VCS.) ([GitHub][3])
-
----
-
-## TL;DR, in one canonical snippet
-
-```dotenv
-# .env (portable)
-APP_ENV=production
-PORT=8080
-DB_URL="postgres://user:pass@db.internal:5432/app"
-JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-MIIBVwIBADANBgkqhkiG9w0BAQEFAASCAT8w...
------END PRIVATE KEY-----"
-# If you must use '#', quote it:
-PASSWORD='pa#ss with spaces'
+check(env["APP_ENV"] == "production")
+check(env["PORT"] == "8080")
+check(env["PASSWORD"] == "pa#ss with spaces")
 ```
 
-If you want the stricter rulebook for Node specifically, use the official Node docs; if you’re writing cross‑language, stick to the safe subset above and don’t get clever. Clever breaks. Boring ships. ([Node.js][2])
+Each result is a `DotenvEntry` containing the key, parsed value, and one-based source line.
 
----
+## Supported Syntax
 
-**Confidence:** high on the “no universal spec” and the safe subset; medium on nuanced feature parity across every third‑party parser (they change). If you tell me which loader(s) you’re standardizing on, I’ll tighten the rules accordingly and flag any edge cases that still bite.
+The parser accepts the common dotenv subset used by most loaders:
 
-[1]: https://ddollar.github.io/foreman/?utm_source=chatgpt.com "foreman(1) - manage Procfile-based applications - David Dollar"
-[2]: https://nodejs.org/api/environment_variables.html "Environment Variables | Node.js v24.8.0 Documentation"
-[3]: https://github.com/motdotla/dotenv "GitHub - motdotla/dotenv: Loads environment variables from .env for nodejs projects."
-[4]: https://github.com/php-xdg/dotenv-spec "GitHub - php-xdg/dotenv-spec: POSIX-compliant dotenv file format specification"
-[5]: https://github.com/theskumar/python-dotenv "GitHub - theskumar/python-dotenv: Reads key-value pairs from a .env file and can set them as environment variables. It helps in developing applications following the 12-factor principles."
-[6]: https://github.com/bkeepers/dotenv "GitHub - bkeepers/dotenv: A Ruby gem to load environment variables from `.env`."
+- blank lines and full-line comments
+- `KEY=value` assignments
+- whitespace around keys, `=`, and values
+- optional `export` before an assignment
+- unquoted values
+- single-quoted values
+- double-quoted values
+- multiline single-quoted and double-quoted values
+- trailing comments after whitespace
+- keys containing letters, digits, underscores, dots, and dashes
+
+Unquoted `#` starts a trailing comment only when it appears after whitespace. Otherwise it remains
+part of the value:
+
+```dotenv
+A=1 # comment
+B=2#not-a-comment
+```
+
+## Escapes And Quotes
+
+Single-quoted values are literal and may span lines.
+
+Double-quoted and unquoted values support the newline, carriage-return, tab, dollar, and hash escapes
+used by the parser:
+
+```dotenv
+A="line1\nline2"
+B=\$HOME\ \#literal
+```
+
+Escaped dollars are protected from variable expansion and restored as literal `$` characters in the
+final value.
+
+## Variable Expansion
+
+Variable expansion is disabled by default. Enable it with `DotenvParseOptions`:
+
+```kotlin
+import one.wabbit.dotenv.parser.DotenvParseOptions
+import one.wabbit.dotenv.parser.parseDotenvText
+
+val text =
+    """
+    HOST=example.test
+    URL=https://${'$'}{HOST}/api
+    FALLBACK=${'$'}{MISSING:-default}
+    """.trimIndent()
+
+val env =
+    parseDotenvText(
+        text,
+        DotenvParseOptions(expandVariables = true)
+    ).associate { it.key to it.value }
+
+check(env["URL"] == "https://example.test/api")
+check(env["FALLBACK"] == "default")
+```
+
+Expansion is applied to unquoted and double-quoted values only. Single-quoted values remain literal.
+
+The resolver is stateful and ordered. `initialEnv` is loaded first, then each parsed entry updates
+the environment visible to later entries. System environment lookup is disabled unless
+`allowSystemEnv = true`.
+
+## Command Substitution
+
+Command substitution is also disabled by default. When enabled, `$()` substitutions execute through
+`ProcessCommandExecutor`:
+
+```kotlin
+import one.wabbit.dotenv.parser.DotenvParseOptions
+import one.wabbit.dotenv.parser.parseDotenvText
+
+val entries =
+    parseDotenvText(
+        "BUILD_USER=$(whoami)",
+        DotenvParseOptions(commandSubstitution = true)
+    )
+```
+
+Command execution is bounded by timeout, output-size, and count limits. By default commands run with
+a hermetic environment containing only `initialEnv` and variables parsed so far.
+
+Backtick substitutions are rejected by default when command substitution is enabled. Set
+`forbidBackticks = false` only when you intentionally need backtick compatibility.
+
+Command substitution currently executes on JVM targets. Android and native targets expose the same
+API but report command substitution as unsupported.
+
+## Error Handling
+
+Parsing failures throw `DotenvParseException`. Error messages include the source line, optional
+column, and a caret when the parser knows the exact location.
+
+```kotlin
+import one.wabbit.dotenv.parser.DotenvParseException
+import one.wabbit.dotenv.parser.parseDotenvText
+
+try {
+    parseDotenvText("A 1")
+} catch (e: DotenvParseException.SyntaxError) {
+    println(e.message)
+}
+```
+
+Specific exception subclasses distinguish missing `=`, unterminated quotes, bad expansion syntax,
+required missing variables, command timeouts, output limits, non-zero exits, and unsupported command
+substitution.
+
+## Status
+
+This library is pre-1.0 and intentionally small. The parsing API is suitable for use, but command
+substitution should be treated as an advanced feature because it executes local processes and is not
+available on every target.
+
+## Documentation
+
+- [User guide](docs/user-guide.md)
+- [API reference notes](docs/api-reference.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Development](docs/development.md)
+
+Generated API docs can be built locally with Dokka. See [API reference notes](docs/api-reference.md)
+for the command.
+
+## Release Notes
+
+- [CHANGELOG.md](CHANGELOG.md)
+
+## Licensing
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) for open
+source use.
+
+For commercial use, contact Wabbit Consulting Corporation at `wabbit@wabbit.one`.
+
+## Contributing
+
+Before contributions can be merged, contributors need to agree to the repository CLA.
