@@ -1,5 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package one.wabbit.dotenv.parser
 
+import java.io.File
+import java.nio.charset.Charset
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.io.files.Path as KxPath
 import one.wabbit.exec.EnvPolicy
 import one.wabbit.exec.Exec
 import one.wabbit.exec.ExecError
@@ -7,36 +14,26 @@ import one.wabbit.exec.ExecException
 import one.wabbit.exec.ExecSpec
 import one.wabbit.exec.ExitPolicy
 import one.wabbit.exec.ShutdownPolicy
-import java.io.File
-import java.nio.charset.Charset
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.io.files.Path as KxPath
 
-/**
- * JVM [CommandExecutor] backed by `one.wabbit:kotlin-exec`.
- */
+/** JVM [CommandExecutor] backed by `one.wabbit:kotlin-exec`. */
 actual class ProcessCommandExecutor : CommandExecutor {
     private fun defaultShell(): List<String> =
-        if ((platformSystemEnv("ComSpec") ?: "").isNotBlank() ||
-            System.getProperty("os.name").lowercase().contains("win")
+        if (
+            (platformSystemEnv("ComSpec") ?: "").isNotBlank() ||
+                System.getProperty("os.name").lowercase().contains("win")
         ) {
             listOf(platformSystemEnv("ComSpec") ?: "cmd", "/c")
         } else {
             listOf("sh", "-c")
         }
 
-    /**
-     * Executes [cmd] through [CommandOptions.shell] or the JVM platform default shell.
-     */
+    /** Executes [cmd] through [CommandOptions.shell] or the JVM platform default shell. */
     actual override fun runShell(cmd: String, options: CommandOptions): CommandResult {
         val shell = options.shell ?: defaultShell()
         return runImpl(shell + cmd, options)
     }
 
-    /**
-     * Executes [argv] directly without shell parsing.
-     */
+    /** Executes [argv] directly without shell parsing. */
     actual override fun runRaw(argv: List<String>, options: CommandOptions): CommandResult {
         require(argv.isNotEmpty()) { "argv must not be empty" }
         return runImpl(argv, options)
@@ -70,13 +67,14 @@ actual class ProcessCommandExecutor : CommandExecutor {
                 cwd = options.cwd?.let { KxPath(File(it).path) },
                 env = envPolicy,
                 stdin = ExecSpec.Input.None,
-                stdout = ExecSpec.StdoutSpec.Pipe(
-                    ExecSpec.SinkSpec.Capture(
-                        maxBytes = stdoutSink.maxBytes,
-                        keep = stdoutSink.keep,
-                        overflow = stdoutSink.overflow,
-                    )
-                ),
+                stdout =
+                    ExecSpec.StdoutSpec.Pipe(
+                        ExecSpec.SinkSpec.Capture(
+                            maxBytes = stdoutSink.maxBytes,
+                            keep = stdoutSink.keep,
+                            overflow = stdoutSink.overflow,
+                        )
+                    ),
                 stderr =
                     if (options.redirectErrorStream) {
                         ExecSpec.StderrSpec.ToStdout
@@ -119,15 +117,9 @@ actual class ProcessCommandExecutor : CommandExecutor {
             throw CommandRunException.NonZeroExit(exit, cmdStr, stdoutRaw)
         }
 
-        return CommandResult(
-            stdout = stdoutTrimmed,
-            exitCode = exit,
-            bytesRead = stdoutBytes.size,
-        )
+        return CommandResult(stdout = stdoutTrimmed, exitCode = exit, bytesRead = stdoutBytes.size)
     }
 }
 
-/**
- * Returns the process environment variable named [name].
- */
+/** Returns the process environment variable named [name]. */
 actual fun platformSystemEnv(name: String): String? = System.getenv(name)

@@ -1,5 +1,12 @@
 # kotlin-dotenv-parser
 
+![](./.meta/github-project-banner.png)
+
+<p align=center>
+    <img src="https://img.shields.io/maven-central/v/one.wabbit/kotlin-dotenv-parser" alt="Maven Central">
+    <img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF" alt="Kotlin Multiplatform">
+</p>
+
 `kotlin-dotenv-parser` is a Kotlin Multiplatform parser for `.env` documents.
 
 It turns dotenv text into ordered key/value entries, with opt-in POSIX-style variable expansion and
@@ -8,7 +15,7 @@ bounded command substitution for loaders that need shell-compatible behavior.
 The default mode is intentionally conservative: it parses values, quotes, comments, and `export`
 prefixes without reading the host environment or executing commands.
 
-## Installation
+## 🚀 Installation
 
 ```kotlin
 repositories {
@@ -20,7 +27,7 @@ dependencies {
 }
 ```
 
-## Quick Start
+## 🚀 Usage
 
 ```kotlin
 import one.wabbit.dotenv.parser.parseDotenvText

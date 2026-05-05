@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package one.wabbit.dotenv.parser
 
 /**
@@ -11,16 +13,16 @@ package one.wabbit.dotenv.parser
  *   default shell. The JVM default is `cmd /c` on Windows and `sh -c` elsewhere.
  * @property inheritParentEnv whether commands inherit the parent process environment before
  *   applying [baseEnv].
- * @property baseEnv environment variables made visible to the command. When
- *   [inheritParentEnv] is `false`, this is the entire command environment.
+ * @property baseEnv environment variables made visible to the command. When [inheritParentEnv] is
+ *   `false`, this is the entire command environment.
  * @property cwd optional working directory path for the command.
  * @property timeoutMs timeout in milliseconds. JVM execution rejects negative values.
  * @property maxOutputBytes maximum stdout bytes captured before the command is stopped.
  * @property redirectErrorStream whether stderr is merged into stdout. When `false`, stderr is
  *   discarded by the JVM implementation.
  * @property charsetName charset name used to decode captured stdout.
- * @property allowNonZeroExit whether a non-zero process exit code is returned as a
- *   [CommandResult] instead of throwing [CommandRunException.NonZeroExit].
+ * @property allowNonZeroExit whether a non-zero process exit code is returned as a [CommandResult]
+ *   instead of throwing [CommandRunException.NonZeroExit].
  */
 data class CommandOptions(
     val shell: List<String>? = null, // null -> OS default
@@ -146,7 +148,7 @@ expect class ProcessCommandExecutor() : CommandExecutor {
 /**
  * Looks up an environment variable from the host platform.
  *
- * The parser only calls this function when [DotenvParseOptions.allowSystemEnv] is `true`.
- * Native targets currently return `null` for all names.
+ * The parser only calls this function when [DotenvParseOptions.allowSystemEnv] is `true`. Native
+ * targets currently return `null` for all names.
  */
 expect fun platformSystemEnv(name: String): String?

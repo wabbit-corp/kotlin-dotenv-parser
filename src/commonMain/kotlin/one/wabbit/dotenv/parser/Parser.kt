@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 @file:Suppress("SpellCheckingInspection")
 
 package one.wabbit.dotenv.parser
@@ -7,8 +9,8 @@ import one.wabbit.parsing.CharInput
 /**
  * Base type for errors found while parsing dotenv text.
  *
- * The message includes the line number, optional column number, the parser-specific error text,
- * and a source-line preview when available. Subclasses identify the failure mode so callers can
+ * The message includes the line number, optional column number, the parser-specific error text, and
+ * a source-line preview when available. Subclasses identify the failure mode so callers can
  * distinguish syntax errors from expansion and command-substitution failures.
  *
  * @property line one-based line number where parsing or expansion failed.
@@ -49,27 +51,19 @@ sealed class DotenvParseException(
     class SyntaxError(line: Int, col: Int?, message: String, context: String) :
         DotenvParseException(line, col, message, context)
 
-    /**
-     * Thrown when a single-quoted value reaches end of input before the closing quote.
-     */
+    /** Thrown when a single-quoted value reaches end of input before the closing quote. */
     class UnterminatedSingleQuoted(line: Int, col: Int?, context: String) :
         DotenvParseException(line, col, "Unterminated single-quoted value", context)
 
-    /**
-     * Thrown when a double-quoted value reaches end of input before the closing quote.
-     */
+    /** Thrown when a double-quoted value reaches end of input before the closing quote. */
     class UnterminatedDoubleQuoted(line: Int, col: Int?, context: String) :
         DotenvParseException(line, col, "Unterminated double-quoted value", context)
 
-    /**
-     * Thrown when an enabled `$()` command substitution is missing its closing parenthesis.
-     */
+    /** Thrown when an enabled `$()` command substitution is missing its closing parenthesis. */
     class UnterminatedCommandSubstitution(line: Int, col: Int?, context: String) :
         DotenvParseException(line, col, "Unterminated \$() command substitution", context)
 
-    /**
-     * Thrown when an enabled backtick command substitution is missing its closing backtick.
-     */
+    /** Thrown when an enabled backtick command substitution is missing its closing backtick. */
     class UnterminatedBacktickSubstitution(line: Int, col: Int?, context: String) :
         DotenvParseException(line, col, "Unterminated backtick command substitution", context)
 
@@ -119,15 +113,13 @@ sealed class DotenvParseException(
     class TooManyCommandSubstitutions(line: Int, col: Int?, max: Int, context: String) :
         DotenvParseException(line, col, "Too many command substitutions (max $max)", context)
 
-    /**
-     * Thrown when a command substitution exceeds [DotenvParseOptions.commandTimeoutMs].
-     */
+    /** Thrown when a command substitution exceeds [DotenvParseOptions.commandTimeoutMs]. */
     class CommandTimeout(line: Int, col: Int?, timeoutMs: Long, cmd: String, context: String) :
         DotenvParseException(line, col, "Command timed out after ${timeoutMs}ms: $cmd", context)
 
     /**
-     * Thrown when a command substitution exits non-zero and
-     * [DotenvParseOptions.allowNonZeroExit] is `false`.
+     * Thrown when a command substitution exits non-zero and [DotenvParseOptions.allowNonZeroExit]
+     * is `false`.
      */
     class CommandNonZeroExit(line: Int, col: Int?, exit: Int, cmd: String, context: String) :
         DotenvParseException(line, col, "Command exited with $exit: $cmd", context)
@@ -139,9 +131,7 @@ sealed class DotenvParseException(
     class CommandOutputTooLarge(line: Int, col: Int?, maxBytes: Int, context: String) :
         DotenvParseException(line, col, "Command output exceeded $maxBytes bytes", context)
 
-    /**
-     * Thrown when command substitution is enabled on a platform that cannot execute commands.
-     */
+    /** Thrown when command substitution is enabled on a platform that cannot execute commands. */
     class CommandSubstitutionUnsupported(line: Int, col: Int?, context: String) :
         DotenvParseException(
             line,
@@ -634,8 +624,8 @@ private class DotenvParser(
  * quoted values may span multiple lines.
  *
  * Variable expansion and command substitution are disabled by default. When enabled through
- * [options], expansion is applied to unquoted and double-quoted values after parsing and before
- * the entry is stored in the resolver state for later lines.
+ * [options], expansion is applied to unquoted and double-quoted values after parsing and before the
+ * entry is stored in the resolver state for later lines.
  *
  * @param text complete dotenv document to parse.
  * @param options parsing, expansion, and command-substitution behavior.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package one.wabbit.dotenv.parser
 
 /**
@@ -7,22 +9,16 @@ package one.wabbit.dotenv.parser
  * [CommandRunException.Unsupported].
  */
 actual class ProcessCommandExecutor : CommandExecutor {
-    /**
-     * Always throws [CommandRunException.Unsupported] on native targets.
-     */
+    /** Always throws [CommandRunException.Unsupported] on native targets. */
     actual override fun runShell(cmd: String, options: CommandOptions): CommandResult {
         throw CommandRunException.Unsupported(cmd)
     }
 
-    /**
-     * Always throws [CommandRunException.Unsupported] on native targets.
-     */
+    /** Always throws [CommandRunException.Unsupported] on native targets. */
     actual override fun runRaw(argv: List<String>, options: CommandOptions): CommandResult {
         throw CommandRunException.Unsupported(argv.joinToString(" "))
     }
 }
 
-/**
- * Returns `null` for every lookup on native targets.
- */
+/** Returns `null` for every lookup on native targets. */
 actual fun platformSystemEnv(name: String): String? = null

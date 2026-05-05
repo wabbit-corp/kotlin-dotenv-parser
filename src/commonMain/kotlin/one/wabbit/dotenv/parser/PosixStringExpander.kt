@@ -1,8 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package one.wabbit.dotenv.parser
 
-/**
- * Resolves variable names during POSIX-style string expansion.
- */
+/** Resolves variable names during POSIX-style string expansion. */
 interface VarResolver {
     /**
      * Returns the value for [name], or `null` when the variable is unset.
@@ -13,9 +13,7 @@ interface VarResolver {
     fun get(name: String): String?
 }
 
-/**
- * Resolver that can be updated by assignment-style parameter expansion.
- */
+/** Resolver that can be updated by assignment-style parameter expansion. */
 interface MutableVarResolver : VarResolver {
     /**
      * Stores [value] for [name].
@@ -52,9 +50,7 @@ data class ExpansionOptions(
     val commandOptions: CommandOptions = CommandOptions(),
 )
 
-/**
- * Base type for failures raised by [StringExpander].
- */
+/** Base type for failures raised by [StringExpander]. */
 sealed class ExpansionException(message: String) : RuntimeException(message) {
     /**
      * Raised when a braced parameter has an invalid variable name.
@@ -72,15 +68,10 @@ sealed class ExpansionException(message: String) : RuntimeException(message) {
     class UnsupportedOperator(val op: Char) :
         ExpansionException("Unsupported operator '$op' in \${...}")
 
-    /**
-     * Raised when a `${...}` expression is missing its closing brace.
-     */
+    /** Raised when a `${...}` expression is missing its closing brace. */
     class UnclosedBracedParameter : ExpansionException("Unclosed \${ in expansion")
 
-    /**
-     * Raised when recursive parameter expansion exceeds
-     * [ExpansionOptions.maxExpansionDepth].
-     */
+    /** Raised when recursive parameter expansion exceeds [ExpansionOptions.maxExpansionDepth]. */
     class ExpansionTooDeep : ExpansionException("Expansion too deep / nested")
 
     /**
@@ -92,20 +83,14 @@ sealed class ExpansionException(message: String) : RuntimeException(message) {
     class ParameterNotSet(val name: String, val msg: String?) :
         ExpansionException(msg ?: "Parameter '$name' is not set")
 
-    /**
-     * Raised when backtick command substitution is encountered while backticks are forbidden.
-     */
+    /** Raised when backtick command substitution is encountered while backticks are forbidden. */
     class BackticksForbidden : ExpansionException("Backticks are forbidden (use \$() instead)")
 
-    /**
-     * Raised when a `$()` command substitution is missing its closing parenthesis.
-     */
+    /** Raised when a `$()` command substitution is missing its closing parenthesis. */
     class UnterminatedCommandSubstitution :
         ExpansionException("Unterminated \$() command substitution")
 
-    /**
-     * Raised when a backtick command substitution is missing its closing backtick.
-     */
+    /** Raised when a backtick command substitution is missing its closing backtick. */
     class UnterminatedBacktickSubstitution :
         ExpansionException("Unterminated backtick command substitution")
 
@@ -131,8 +116,8 @@ sealed class ExpansionException(message: String) : RuntimeException(message) {
  * Expands POSIX-style variables and command substitutions in a string.
  *
  * The expander is independent of dotenv parsing and works on plain strings. Variable expansion
- * supports `$NAME`, `${NAME}`, and the `-`, `+`, `=`, and `?` braced operators with optional
- * `:` semantics. Command output is inserted literally; it is not passed through a second variable
+ * supports `$NAME`, `${NAME}`, and the `-`, `+`, `=`, and `?` braced operators with optional `:`
+ * semantics. Command output is inserted literally; it is not passed through a second variable
  * expansion pass.
  *
  * @param resolver variable resolver used by simple and braced parameter expansion.
